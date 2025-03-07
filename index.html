@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>PDF 단어 플래시카드</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+    h1 {
+      text-align: center;
+    }
+    #status {
+      margin-top: 10px;
+      font-size: 16px;
+      text-align: center;
+      color: #333;
+    }
+    #flashcards {
+      margin-top: 20px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      font-size: 20px;
+    }
+    #nav-buttons {
+      text-align: center;
+      margin-top: 20px;
+    }
+    button {
+      margin: 5px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>PDF 단어 플래시카드</h1>
+  <div style="text-align:center;">
+    <input type="file" id="file-input" accept="application/pdf">
+  </div>
+  <div id="status"></div>
+  <div id="flashcards"></div>
+  <div id="nav-buttons" style="display:none;">
+    <button id="prev-btn" onclick="prevSet()">이전</button>
+    <button id="next-btn" onclick="nextSet()">다음</button>
+  </div>
+
+  <!-- pdf.js 라이브러리 (원본 링크 그대로) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+  <script>
+    const statusEl = document.getElementById("status");
+    const flashcardsEl = document.getElementById("flashcards");
+    const navButtonsEl = document.getElementById("nav-buttons");
+    let words = [];
+    let currentSet = 0;
+    const wordsPerSet = 3;
+
+    // PDF 업로드 시 처리
+    document.getElementById("file-input").addEventListener("change", function(e) {
+      const file = e.target.files[0];
+      if (file && file.type === "application/pdf") {
+        statusEl.textContent = "PDF 파일 로딩 중...";
+        const fileReader = new FileReader();
+        fileReader.onload = function() {
+          const typedarray = new Uint8Array(this.result);
+          pdfjsLib.getDocument(typedarray).promise.then(function(pdf) {
+            let maxPages = pdf.numPages;
+            let countPromises = [];
+            // 각 페이지의 텍스트를 추출
+            for (let i = 1; i <= maxPages; i++) {
+              countPromises.push(
+                pdf.getPage(i).then(function(page) {
+                  return page.getTextContent().then(function(textContent) {
+                    let texts = textContent.items.map(item => item.str);
+                    return texts.join(" ");
+                  });
+                })
+              );
+            }
+            Promise.all(countPromises).then(function(texts) {
+              const fullText = texts.join(" ");
+              // 정규표현식을 사용하여 "번호 영어단어 한글뜻" 쌍 추출
+              // 영어단어는 공백이 없는 단어, 한글뜻은 최소 한 글자 이상의 한글을 포함한 문자열로 가정합니다.
+              const regex = /\d+\s+(\S+)\s+((?:(?!\d).)*[ㄱ-ㅎ가-힣]+(?:(?!\d).)*)/g;
+              let match;
+              words = [];
+              while ((match = regex.exec(fullText)) !== null) {
+                let word = match[1].trim();
+                let meaning = match[2].trim();
+                // 한글이 포함되어 있는 경우에만 추가
+                if (/[ㄱ-ㅎ가-힣]/.test(meaning)) {
+                  words.push({ word: word, meaning: meaning });
+                }
+              }
+              if (words.length > 0) {
+                statusEl.textContent = "단어가 로드되었습니다. 총 " + words.length + " 쌍.";
+                currentSet = 0;
+                displayWords();
+                navButtonsEl.style.display = "block";
+              } else {
+                statusEl.textContent = "단어를 추출하지 못했습니다.";
+              }
+            });
+          }).catch(function(error) {
+            statusEl.textContent = "PDF 로딩 에러: " + error.message;
+          });
+        };
+        fileReader.readAsArrayBuffer(file);
+      } else {
+        statusEl.textContent = "PDF 파일만 업로드 해주세요.";
+      }
+    });
+
+    // 현재 단어 세트를 표시
+    function displayWords() {
+      flashcardsEl.innerHTML = "";
+      const start = currentSet * wordsPerSet;
+      const end = Math.min(start + wordsPerSet, words.length);
+      for (let i = start; i < end; i++) {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = "<strong>" + words[i].word + "</strong>: " + words[i].meaning;
+        flashcardsEl.appendChild(card);
+      }
+    }
+
+    function nextSet() {
+      if ((currentSet + 1) * wordsPerSet < words.length) {
+        currentSet++;
+        displayWords();
+      }
+    }
+
+    function prevSet() {
+      if (currentSet > 0) {
+        currentSet--;
+        displayWords();
+      }
+    }
+  </script>
+</body>
+</html>
