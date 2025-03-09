@@ -29,7 +29,7 @@
       border-radius: 4px;
       font-size: 20px;
     }
-    #nav-buttons {
+    #random-button {
       text-align: center;
       margin-top: 20px;
     }
@@ -38,6 +38,14 @@
       padding: 10px 20px;
       font-size: 16px;
       cursor: pointer;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #45a049;
     }
   </style>
 </head>
@@ -48,19 +56,17 @@
   </div>
   <div id="status"></div>
   <div id="flashcards"></div>
-  <div id="nav-buttons" style="display:none;">
-    <button id="prev-btn" onclick="prevSet()">이전</button>
-    <button id="next-btn" onclick="nextSet()">다음</button>
+  <div id="random-button" style="display:none;">
+    <button id="random-btn" onclick="randomWords()">랜덤 뽑기</button>
   </div>
 
-  <!-- pdf.js 라이브러리 (원본 링크 그대로) -->
+  <!-- pdf.js 라이브러리 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
   <script>
     const statusEl = document.getElementById("status");
     const flashcardsEl = document.getElementById("flashcards");
-    const navButtonsEl = document.getElementById("nav-buttons");
+    const randomButtonEl = document.getElementById("random-button");
     let words = [];
-    let currentSet = 0;
     const wordsPerSet = 3;
 
     // PDF 업로드 시 처리
@@ -102,9 +108,9 @@
               }
               if (words.length > 0) {
                 statusEl.textContent = "단어가 로드되었습니다. 총 " + words.length + " 쌍.";
-                currentSet = 0;
-                displayWords();
-                navButtonsEl.style.display = "block";
+                // 처음에는 랜덤으로 단어 표시
+                randomWords();
+                randomButtonEl.style.display = "block";
               } else {
                 statusEl.textContent = "단어를 추출하지 못했습니다.";
               }
@@ -119,31 +125,30 @@
       }
     });
 
-    // 현재 단어 세트를 표시
-    function displayWords() {
+    // 랜덤하게 단어 선택 및 표시
+    function randomWords() {
       flashcardsEl.innerHTML = "";
-      const start = currentSet * wordsPerSet;
-      const end = Math.min(start + wordsPerSet, words.length);
-      for (let i = start; i < end; i++) {
+      
+      if (words.length <= wordsPerSet) {
+        // 단어가 너무 적으면 모든 단어 표시
+        displaySelectedWords(words);
+      } else {
+        // 복사본 배열 생성하여 무작위로 섞기
+        const shuffled = [...words].sort(() => 0.5 - Math.random());
+        // 앞에서 wordsPerSet 개수만큼 선택
+        const selected = shuffled.slice(0, wordsPerSet);
+        displaySelectedWords(selected);
+      }
+    }
+    
+    // 선택된 단어 집합 표시
+    function displaySelectedWords(selectedWords) {
+      selectedWords.forEach(wordObj => {
         const card = document.createElement("div");
         card.className = "card";
-        card.innerHTML = "<strong>" + words[i].word + "</strong>: " + words[i].meaning;
+        card.innerHTML = "<strong>" + wordObj.word + "</strong>: " + wordObj.meaning;
         flashcardsEl.appendChild(card);
-      }
-    }
-
-    function nextSet() {
-      if ((currentSet + 1) * wordsPerSet < words.length) {
-        currentSet++;
-        displayWords();
-      }
-    }
-
-    function prevSet() {
-      if (currentSet > 0) {
-        currentSet--;
-        displayWords();
-      }
+      });
     }
   </script>
 </body>
